@@ -56,11 +56,13 @@ _unshift(value, s) = value
 _unshift(value, s::MOI.EqualTo) = value + s.value
 _unshift(value, s::MOI.GreaterThan) = value + s.lower
 _unshift(value, s::MOI.LessThan) = value + s.upper
+_reorder(x, s) = x
+_reorder(x, s::MOI.PositiveSemidefiniteConeTriangle) = sympackedLtoU(x, s.dimension)
 function MOI.get(instance::SCSSolverInstance, ::MOI.ConstraintPrimal, cr::CR)
     offset = instance.constrmap[cr.value]
     s = MOI.get(instance, MOI.ConstraintSet(), cr)
     rows = constrrows(s)
-    _unshift(scalecoef(rows, instance.slack[offset + rows], false, s), s)
+    _unshift(scalecoef(rows, _reorder(instance.slack[offset + rows], s), false, s, true), s)
 end
 
 MOI.canget(instance::SCSSolverInstance, ::MOI.DualStatus) = true
@@ -81,7 +83,7 @@ function MOI.get(instance::SCSSolverInstance, ::MOI.ConstraintDual, cr::CR)
     offset = instance.constrmap[cr.value]
     s = MOI.get(instance, MOI.ConstraintSet(), cr)
     rows = constrrows(s)
-    scalecoef(rows, instance.dual[offset + rows], false, s)
+    scalecoef(rows, _reorder(instance.dual[offset + rows], s), false, s, true)
 end
 
 MOI.canget(instance::SCSSolverInstance, ::MOI.ResultCount) = true
