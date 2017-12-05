@@ -42,25 +42,25 @@ function MOI.get(instance::SCSSolverInstance, ::MOI.PrimalStatus)
         MOI.InfeasiblePoint
     end
 end
-function MOI.canget(instance::SCSSolverInstance, ::Union{MOI.VariablePrimal, MOI.ConstraintPrimal}, r::MOI.AnyReference)
+function MOI.canget(instance::SCSSolverInstance, ::Union{MOI.VariablePrimal, MOI.ConstraintPrimal}, r::MOI.Index)
     instance.ret_val in (-6, -3, -1, 1, 2)
 end
-function MOI.canget(instance::SCSSolverInstance, ::Union{MOI.VariablePrimal, MOI.ConstraintPrimal}, r::Vector{<:MOI.AnyReference})
+function MOI.canget(instance::SCSSolverInstance, ::Union{MOI.VariablePrimal, MOI.ConstraintPrimal}, r::Vector{<:MOI.Index})
     instance.ret_val in (-6, -3, -1, 1, 2)
 end
-function MOI.get(instance::SCSSolverInstance, ::MOI.VariablePrimal, vr::VR)
+function MOI.get(instance::SCSSolverInstance, ::MOI.VariablePrimal, vr::VI)
     instance.primal[instance.varmap[vr]]
 end
-MOI.get(instance::SCSSolverInstance, a::MOI.VariablePrimal, vr::Vector{VR}) = MOI.get.(instance, a, vr)
+MOI.get(instance::SCSSolverInstance, a::MOI.VariablePrimal, vr::Vector{VI}) = MOI.get.(instance, a, vr)
 _unshift(value, s) = value
 _unshift(value, s::MOI.EqualTo) = value + s.value
 _unshift(value, s::MOI.GreaterThan) = value + s.lower
 _unshift(value, s::MOI.LessThan) = value + s.upper
 _reorder(x, s) = x
 _reorder(x, s::MOI.PositiveSemidefiniteConeTriangle) = sympackedLtoU(x, s.dimension)
-function MOI.get(instance::SCSSolverInstance, ::MOI.ConstraintPrimal, cr::CR)
-    offset = instance.constrmap[cr.value]
-    s = MOI.get(instance, MOI.ConstraintSet(), cr)
+function MOI.get(instance::SCSSolverInstance, ::MOI.ConstraintPrimal, ci::CI)
+    offset = instance.constrmap[ci.value]
+    s = MOI.get(instance, MOI.ConstraintSet(), ci)
     rows = constrrows(s)
     _unshift(scalecoef(rows, _reorder(instance.slack[offset + rows], s), false, s, true), s)
 end
@@ -76,12 +76,12 @@ function MOI.get(instance::SCSSolverInstance, ::MOI.DualStatus)
         MOI.InfeasiblePoint
     end
 end
-function MOI.canget(instance::SCSSolverInstance, ::MOI.ConstraintDual, ::CR)
+function MOI.canget(instance::SCSSolverInstance, ::MOI.ConstraintDual, ::CI)
     instance.ret_val in (-7, -3, -2, 1, 2)
 end
-function MOI.get(instance::SCSSolverInstance, ::MOI.ConstraintDual, cr::CR)
-    offset = instance.constrmap[cr.value]
-    s = MOI.get(instance, MOI.ConstraintSet(), cr)
+function MOI.get(instance::SCSSolverInstance, ::MOI.ConstraintDual, ci::CI)
+    offset = instance.constrmap[ci.value]
+    s = MOI.get(instance, MOI.ConstraintSet(), ci)
     rows = constrrows(s)
     scalecoef(rows, _reorder(instance.dual[offset + rows], s), false, s, true)
 end

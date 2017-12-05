@@ -4,8 +4,8 @@ export SCSInstance
 
 using MathOptInterface
 const MOI = MathOptInterface
-const CR = MOI.ConstraintReference
-const VR = MOI.VariableReference
+const CI = MOI.ConstraintIndex
+const VI = MOI.VariableIndex
 
 using MathOptInterfaceUtilities
 const MOIU = MathOptInterfaceUtilities
@@ -16,15 +16,15 @@ using SCS
 
 mutable struct SCSSolverInstance <: MOI.AbstractSolverInstance
     data::SCSInstanceData{Float64}
-    varmap::Dict{VR, Int}
-    constrmap::Dict{UInt64, Int}
+    varmap::Dict{VI, Int}
+    constrmap::Dict{Int64, Int}
     ret_val::Int
     primal::Vector{Float64}
     dual::Vector{Float64}
     slack::Vector{Float64}
     objval::Float64
     function SCSSolverInstance()
-        new(SCSInstanceData{Float64}(), Dict{VR, Int}(), Dict{UInt64, Int}(), 1, Float64[], Float64[], Float64[], 0.)
+        new(SCSInstanceData{Float64}(), Dict{VI, Int}(), Dict{Int64, Int}(), 1, Float64[], Float64[], Float64[], 0.)
     end
 end
 
