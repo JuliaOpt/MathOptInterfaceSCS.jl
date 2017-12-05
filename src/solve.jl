@@ -16,13 +16,14 @@ mutable struct Cone
     scur::Int
     sa::Vector{Int} # array of semi-definite constraints
     ep::Int # number of primal exponential cone triples
+    epcur::Int
     ed::Int # number of dual exponential cone triples
     p::Vector{Float64} # array of power cone params
     function Cone()
         new(0, 0, 0, 0,
             0, 0, Int[],
             0, 0, Int[],
-            0, 0, Float64[])
+            0, 0, 0, Float64[])
     end
 end
 
@@ -37,6 +38,7 @@ function constrcall(cone::Cone, ci, f, s::MOI.PositiveSemidefiniteConeTriangle)
     push!(cone.sa, s.dimension)
     cone.s += _dim(s)
 end
+constrcall(cone::Cone, ci, f, s::MOI.ExponentialCone) = cone.ep += 1
 
 # Fill constrmap
 function constrcall(cone::Cone, constrmap::Dict, ci, f, s::ZeroCones)
@@ -54,6 +56,10 @@ end
 function constrcall(cone::Cone, constrmap::Dict, ci, f, s::MOI.PositiveSemidefiniteConeTriangle)
     constrmap[ci.value] = cone.f + cone.l + cone.q + cone.scur
     cone.scur += _dim(s)
+end
+function constrcall(cone::Cone, constrmap::Dict, ci, f, s::MOI.ExponentialCone)
+    constrmap[ci.value] = cone.f + cone.l + cone.q + cone.s + cone.epcur
+    cone.epcur += _dim(s)
 end
 
 # Vectorized length for matrix dimension n
@@ -165,7 +171,7 @@ function MOI.optimize!(instance::SCSSolverInstance)
         instance.varmap[vi] = vcur
     end
     @assert vcur == MOI.get(instance.data, MOI.NumberOfVariables())
-    m = cone.f + cone.l + cone.q + cone.s + cone.ep + cone.ed
+    m = cone.f + cone.l + cone.q + cone.s + 3cone.ep + cone.ed
     n = vcur
     I = Int[]
     J = Int[]
