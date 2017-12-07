@@ -56,13 +56,15 @@ _unshift(value, s) = value
 _unshift(value, s::MOI.EqualTo) = value + s.value
 _unshift(value, s::MOI.GreaterThan) = value + s.lower
 _unshift(value, s::MOI.LessThan) = value + s.upper
-_reorder(x, s) = x
-_reorder(x, s::MOI.PositiveSemidefiniteConeTriangle) = sympackedLtoU(x, s.dimension)
+reorderval(val, s) = val
+function reorderval(val, s::MOI.PositiveSemidefiniteConeTriangle)
+    sympackedLtoU(val, s.dimension)
+end
 function MOI.get(instance::SCSSolverInstance, ::MOI.ConstraintPrimal, ci::CI)
     offset = instance.constrmap[ci.value]
     s = MOI.get(instance, MOI.ConstraintSet(), ci)
     rows = constrrows(s)
-    _unshift(scalecoef(rows, _reorder(instance.slack[offset + rows], s), false, s, true), s)
+    _unshift(scalecoef(rows, reorderval(instance.slack[offset + rows], s), false, s, true), s)
 end
 
 MOI.canget(instance::SCSSolverInstance, ::MOI.DualStatus) = true
@@ -83,7 +85,7 @@ function MOI.get(instance::SCSSolverInstance, ::MOI.ConstraintDual, ci::CI)
     offset = instance.constrmap[ci.value]
     s = MOI.get(instance, MOI.ConstraintSet(), ci)
     rows = constrrows(s)
-    scalecoef(rows, _reorder(instance.dual[offset + rows], s), false, s, true)
+    scalecoef(rows, reorderval(instance.dual[offset + rows], s), false, s, true)
 end
 
 MOI.canget(instance::SCSSolverInstance, ::MOI.ResultCount) = true
