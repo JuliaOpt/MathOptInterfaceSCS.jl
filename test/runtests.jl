@@ -14,5 +14,5 @@ const config = MOIT.TestConfig(1e-5, 1e-5, true, true, true, true)
 end
 
 @testset "Continuous conic problems" begin
-    MOIT.contconictest(solver, config, ["soc3", "rsoc", "geomean", "rootdet", "logdet"])
+    MOIT.contconictest(solver, config, ["rsoc", "geomean", "rootdet", "logdet"])
 end
