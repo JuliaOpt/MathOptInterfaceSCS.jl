@@ -186,7 +186,7 @@ function MOI.optimize!(instance::SCSSolverInstance)
     f = MOI.get(instance.data, MOI.ObjectiveFunction())
     c0 = full(sparsevec(_varmap(instance.varmap, f), f.coefficients, n))
     c = MOI.get(instance.data, MOI.ObjectiveSense()) == MOI.MaxSense ? -c0 : c0
-    sol = SCS_solve(m, n, A, b, c, cone.f, cone.l, cone.qa, cone.sa, cone.ep, cone.ed, cone.p)
+    sol = SCS_solve(SCS.Indirect, m, n, A, b, c, cone.f, cone.l, cone.qa, cone.sa, cone.ep, cone.ed, cone.p)
     instance.ret_val = sol.ret_val
     instance.primal = sol.x
     instance.dual = sol.y
