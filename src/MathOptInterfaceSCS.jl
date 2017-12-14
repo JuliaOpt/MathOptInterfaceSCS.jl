@@ -30,9 +30,10 @@ end
 
 @bridge SplitInterval MOIU.SplitIntervalBridge () (Interval,) () () () (ScalarAffineFunction,) () ()
 @bridge GeoMean MOIU.GeoMeanBridge () () (GeometricMeanCone,) () () () (VectorOfVariables,) (VectorAffineFunction,)
+@bridge LogDet MOIU.LogDetBridge () () (LogDetConeTriangle,) () () () (VectorOfVariables,) (VectorAffineFunction,)
 @bridge RootDet MOIU.RootDetBridge () () (RootDetConeTriangle,) () () () (VectorOfVariables,) (VectorAffineFunction,)
 
-SCSInstance() = RootDet{Float64}(GeoMean{Float64}(SplitInterval{Float64}(SCSSolverInstance())))
+SCSInstance() = RootDet{Float64}(LogDet{Float64}(GeoMean{Float64}(SplitInterval{Float64}(SCSSolverInstance()))))
 
 # Redirect data modification calls to data
 include("data.jl")
