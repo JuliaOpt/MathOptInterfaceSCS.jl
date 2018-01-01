@@ -14,19 +14,20 @@ MOIU.@instance SCSInstanceData () (EqualTo, GreaterThan, LessThan) (Zeros, Nonne
 
 using SCS
 
+include("types.jl")
+
 mutable struct SCSSolverInstance <: MOI.AbstractSolverInstance
-    data::SCSInstanceData{Float64}
-    varmap::Dict{VI, Int}
-    constrmap::Dict{Int64, Int}
-    ret_val::Int
-    primal::Vector{Float64}
-    dual::Vector{Float64}
-    slack::Vector{Float64}
-    objval::Float64
+    instancedata::SCSInstanceData{Float64} # Will be removed when
+    idxmap::MOIU.IndexMap                  # InstanceManager is ready
+    cone::Cone
+    data::Union{Void, Data} # only non-Void between MOI.copy! and MOI.optimize!
+    sol::Solution
     function SCSSolverInstance()
-        new(SCSInstanceData{Float64}(), Dict{VI, Int}(), Dict{Int64, Int}(), 1, Float64[], Float64[], Float64[], 0.)
+        new(SCSInstanceData{Float64}(), MOIU.IndexMap(), Cone(), nothing, Solution())
     end
 end
+
+function MOI.empty!(instance::SCSSolverInstance) end
 
 @bridge SplitInterval MOIU.SplitIntervalBridge () (Interval,) () () () (ScalarAffineFunction,) () ()
 @bridge GeoMean MOIU.GeoMeanBridge () () (GeometricMeanCone,) () () () (VectorOfVariables,) (VectorAffineFunction,)
@@ -34,6 +35,8 @@ end
 @bridge RootDet MOIU.RootDetBridge () () (RootDetConeTriangle,) () () () (VectorOfVariables,) (VectorAffineFunction,)
 
 SCSInstance() = RootDet{Float64}(LogDet{Float64}(GeoMean{Float64}(SplitInterval{Float64}(SCSSolverInstance()))))
+
+MOI.copy!(dest::SCSSolverInstance, src::MOI.AbstractInstance) = MOIU.allocateload!(dest, src)
 
 # Redirect data modification calls to data
 include("data.jl")

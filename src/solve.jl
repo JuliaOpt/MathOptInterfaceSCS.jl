@@ -4,66 +4,48 @@ const LPCones = Union{MOI.GreaterThan, MOI.LessThan, MOI.Nonnegatives, MOI.Nonpo
 _dim(s::MOI.AbstractScalarSet) = 1
 _dim(s::MOI.AbstractVectorSet) = MOI.dimension(s)
 
-mutable struct Cone
-    f::Int # number of linear equality constraints
-    fcur::Int
-    l::Int # length of LP cone
-    lcur::Int
-    q::Int # length of SOC cone
-    qcur::Int
-    qa::Vector{Int} # array of second-order cone constraints
-    s::Int # length of SD cone
-    scur::Int
-    sa::Vector{Int} # array of semi-definite constraints
-    ep::Int # number of primal exponential cone triples
-    epcur::Int
-    ed::Int # number of dual exponential cone triples
-    p::Vector{Float64} # array of power cone params
-    function Cone()
-        new(0, 0, 0, 0,
-            0, 0, Int[],
-            0, 0, Int[],
-            0, 0, 0, Float64[])
-    end
-end
-
 # Computes cone dimensions
-constrcall(cone::Cone, ci, f, s::ZeroCones) = cone.f += _dim(s)
-constrcall(cone::Cone, ci, f, s::LPCones) = cone.l += _dim(s)
-function constrcall(cone::Cone, ci, f, s::MOI.SecondOrderCone)
+constroffset(cone::Cone, ci::CI{<:MOI.AbstractFunction, <:ZeroCones}) = ci.value
+function _allocateconstraint!(cone::Cone, f, s::ZeroCones)
+    ci = cone.f
+    cone.f += _dim(s)
+    ci
+end
+constroffset(cone::Cone, ci::CI{<:MOI.AbstractFunction, <:LPCones}) = cone.f + ci.value
+function _allocateconstraint!(cone::Cone, f, s::LPCones)
+    ci = cone.l
+    cone.l += _dim(s)
+    ci
+end
+constroffset(cone::Cone, ci::CI{<:MOI.AbstractFunction, <:MOI.SecondOrderCone}) = cone.f + cone.l + ci.value
+function _allocateconstraint!(cone::Cone, f, s::MOI.SecondOrderCone)
     push!(cone.qa, s.dimension)
+    ci = cone.q
     cone.q += _dim(s)
+    ci
 end
-function constrcall(cone::Cone, ci, f, s::MOI.PositiveSemidefiniteConeTriangle)
+constroffset(cone::Cone, ci::CI{<:MOI.AbstractFunction, <:MOI.PositiveSemidefiniteConeTriangle}) = cone.f + cone.l + cone.q + ci.value
+function _allocateconstraint!(cone::Cone, f, s::MOI.PositiveSemidefiniteConeTriangle)
     push!(cone.sa, s.dimension)
+    ci = cone.s
     cone.s += _dim(s)
+    ci
 end
-constrcall(cone::Cone, ci, f, s::MOI.ExponentialCone) = cone.ep += 1
-
-# Fill constrmap
-function constrcall(cone::Cone, constrmap::Dict, ci, f, s::ZeroCones)
-    constrmap[ci.value] = cone.fcur
-    cone.fcur += _dim(s)
+constroffset(cone::Cone, ci::CI{<:MOI.AbstractFunction, <:MOI.ExponentialCone}) = cone.f + cone.l + cone.q + cone.s + ci.value
+function _allocateconstraint!(cone::Cone, f, s::MOI.ExponentialCone)
+    ci = 3cone.ep
+    cone.ep += 1
+    ci
 end
-function constrcall(cone::Cone, constrmap::Dict, ci, f, s::LPCones)
-    constrmap[ci.value] = cone.f + cone.lcur
-    cone.lcur += _dim(s)
-end
-function constrcall(cone::Cone, constrmap::Dict, ci, f, s::MOI.SecondOrderCone)
-    constrmap[ci.value] = cone.f + cone.l + cone.qcur
-    cone.qcur += _dim(s)
-end
-function constrcall(cone::Cone, constrmap::Dict, ci, f, s::MOI.PositiveSemidefiniteConeTriangle)
-    constrmap[ci.value] = cone.f + cone.l + cone.q + cone.scur
-    cone.scur += _dim(s)
-end
-function constrcall(cone::Cone, constrmap::Dict, ci, f, s::MOI.ExponentialCone)
-    constrmap[ci.value] = cone.f + cone.l + cone.q + cone.s + cone.epcur
-    cone.epcur += _dim(s)
+constroffset(instance::SCSSolverInstance, ci) = constroffset(instance.cone, ci)
+function MOIU.allocateconstraint!(instance::SCSSolverInstance, f::F, s::S) where {F <: MOI.AbstractFunction, S <: MOI.AbstractSet}
+    CI{F, S}(_allocateconstraint!(instance.cone, f, s))
 end
 
 # Vectorized length for matrix dimension n
 sympackedlen(n) = (n*(n+1)) >> 1
+# Matrix dimension for vectorized length n
+sympackeddim(n) = div(isqrt(1+8n) - 1, 2)
 trimap(i::Integer, j::Integer) = i < j ? trimap(j, i) : div((i-1)*i, 2) + j
 trimapL(i::Integer, j::Integer, n::Integer) = i < j ? trimapL(j, i, n) : i + div((2n-j) * (j-1), 2)
 function _sympackedto(x, n, mapfrom, mapto)
@@ -88,14 +70,14 @@ end
 
 
 # Build constraint matrix
-scalecoef(rows, coef, minus, s, rev) = minus ? -coef : coef
-scalecoef(rows, coef, minus, s::Union{MOI.LessThan, MOI.Nonpositives}, rev) = minus ? coef : -coef
-function scalecoef(rows, coef, minus, s::MOI.PositiveSemidefiniteConeTriangle, rev)
+scalecoef(rows, coef, minus, s) = minus ? -coef : coef
+scalecoef(rows, coef, minus, s::Union{MOI.LessThan, Type{<:MOI.LessThan}, MOI.Nonpositives, Type{MOI.Nonpositives}}) = minus ? coef : -coef
+function _scalecoef(rows, coef, minus, d, rev)
     scaling = minus ? -1 : 1
     scaling2 = rev ? scaling / sqrt(2) : scaling * sqrt(2)
     output = copy(coef)
     diagidx = IntSet()
-    for i in 1:s.dimension
+    for i in 1:d
         push!(diagidx, trimap(i, i))
     end
     for i in 1:length(output)
@@ -107,29 +89,39 @@ function scalecoef(rows, coef, minus, s::MOI.PositiveSemidefiniteConeTriangle, r
     end
     output
 end
-_varmap(varmap, f) = map(vi -> varmap[vi], f.variables)
+function scalecoef(rows, coef, minus, s::MOI.PositiveSemidefiniteConeTriangle)
+    _scalecoef(rows, coef, minus, s.dimension, false)
+end
+function scalecoef(rows, coef, minus, ::Type{MOI.PositiveSemidefiniteConeTriangle})
+    _scalecoef(rows, coef, minus, sympackeddim(length(rows)), true)
+end
+_varmap(f) = map(vi -> vi.value, f.variables)
 _constant(s::MOI.EqualTo) = s.value
 _constant(s::MOI.GreaterThan) = s.lower
 _constant(s::MOI.LessThan) = s.upper
 constrrows(::MOI.AbstractScalarSet) = 1
 constrrows(s::MOI.AbstractVectorSet) = 1:MOI.dimension(s)
-constrcall(I, J, V, b, varmap, constrmap, ci, f::MOI.SingleVariable, s) = constrcall(I, J, V, b, varmap, constrmap, ci, MOI.ScalarAffineFunction{Float64}(f), s)
-function constrcall(I, J, V, b, varmap::Dict, constrmap::Dict, ci, f::MOI.ScalarAffineFunction, s)
-    a = sparsevec(_varmap(varmap, f), f.coefficients)
+constrrows(instance::SCSSolverInstance, ci::CI{<:MOI.AbstractScalarFunction, <:MOI.AbstractScalarSet}) = 1
+constrrows(instance::SCSSolverInstance, ci::CI{<:MOI.AbstractVectorFunction, <:MOI.AbstractVectorSet}) = 1:instance.cone.nrows[constroffset(instance, ci)]
+MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.SingleVariable, s) = MOIU.loadconstraint!(instance, ci, MOI.ScalarAffineFunction{Float64}(f), s)
+function MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.ScalarAffineFunction, s)
+    a = sparsevec(_varmap(f), f.coefficients)
     # sparsevec combines duplicates with + but does not remove zeros created so we call dropzeros!
     dropzeros!(a)
-    offset = constrmap[ci.value]
+    offset = constroffset(instance, ci)
     row = constrrows(s)
     i = offset + row
     # The SCS format is b - Ax ∈ cone
     # so minus=false for b and minus=true for A
-    constant = f.constant - _constant(s)
-    b[i] = scalecoef(row, constant, false, s, false)
-    append!(I, fill(i, length(a.nzind)))
-    append!(J, a.nzind)
-    append!(V, scalecoef(row, a.nzval, true, s, false))
+    setconstant = _constant(s)
+    instance.cone.setconstant[offset] = setconstant
+    constant = f.constant - setconstant
+    instance.data.b[i] = scalecoef(row, constant, false, s)
+    append!(instance.data.I, fill(i, length(a.nzind)))
+    append!(instance.data.J, a.nzind)
+    append!(instance.data.V, scalecoef(row, a.nzval, true, s))
 end
-constrcall(I, J, V, b, varmap, constrmap, ci, f::MOI.VectorOfVariables, s) = constrcall(I, J, V, b, varmap, constrmap, ci, MOI.VectorAffineFunction{Float64}(f), s)
+MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.VectorOfVariables, s) = MOIU.loadconstraint!(instance, ci, MOI.VectorAffineFunction{Float64}(f), s)
 orderval(val, s) = val
 function orderval(val, s::MOI.PositiveSemidefiniteConeTriangle)
     sympackedUtoL(val, s.dimension)
@@ -138,8 +130,8 @@ orderidx(idx, s) = idx
 function orderidx(idx, s::MOI.PositiveSemidefiniteConeTriangle)
     sympackedUtoLidx(idx, s.dimension)
 end
-function constrcall(I, J, V, b, varmap::Dict, constrmap::Dict, ci, f::MOI.VectorAffineFunction, s)
-    A = sparse(f.outputindex, _varmap(varmap, f), f.coefficients)
+function MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.VectorAffineFunction, s)
+    A = sparse(f.outputindex, _varmap(f), f.coefficients)
     # sparse combines duplicates with + but does not remove zeros created so we call dropzeros!
     dropzeros!(A)
     colval = zeros(Int, length(A.rowval))
@@ -147,15 +139,16 @@ function constrcall(I, J, V, b, varmap::Dict, constrmap::Dict, ci, f::MOI.Vector
         colval[A.colptr[col]:(A.colptr[col+1]-1)] = col
     end
     @assert !any(iszero.(colval))
-    offset = constrmap[ci.value]
+    offset = constroffset(instance, ci)
     rows = constrrows(s)
+    instance.cone.nrows[offset] = length(rows)
     i = offset + rows
     # The SCS format is b - Ax ∈ cone
     # so minus=false for b and minus=true for A
-    b[i] = scalecoef(rows, orderval(f.constant, s), false, s, false)
-    append!(I, offset + orderidx(A.rowval, s))
-    append!(J, colval)
-    append!(V, scalecoef(A.rowval, A.nzval, true, s, false))
+    instance.data.b[i] = scalecoef(rows, orderval(f.constant, s), false, s)
+    append!(instance.data.I, offset + orderidx(A.rowval, s))
+    append!(instance.data.J, colval)
+    append!(instance.data.V, scalecoef(A.rowval, A.nzval, true, s))
 end
 
 function constrcall(arg::Tuple, constrs::Vector)
@@ -163,33 +156,48 @@ function constrcall(arg::Tuple, constrs::Vector)
         constrcall(arg..., constr...)
     end
 end
-function MOI.optimize!(instance::SCSSolverInstance)
-    cone = Cone()
-    MOIU.broadcastcall(constrs -> constrcall((cone,), constrs), instance.data)
-    instance.constrmap = Dict{UInt64, Int}()
-    MOIU.broadcastcall(constrs -> constrcall((cone, instance.constrmap), constrs), instance.data)
-    vcur = 0
-    instance.varmap = Dict{VI, Int}()
-    for vi in MOI.get(instance.data, MOI.ListOfVariableIndices())
-        vcur += 1
-        instance.varmap[vi] = vcur
-    end
-    @assert vcur == MOI.get(instance.data, MOI.NumberOfVariables())
+
+function MOIU.allocatevariables!(instance::SCSSolverInstance, nvars::Integer)
+    instance.cone = Cone()
+    VI.(1:nvars)
+end
+
+function MOIU.loadvariables!(instance::SCSSolverInstance, nvars::Integer)
+    cone = instance.cone
     m = cone.f + cone.l + cone.q + cone.s + 3cone.ep + cone.ed
-    n = vcur
     I = Int[]
     J = Int[]
     V = Float64[]
     b = zeros(m)
-    MOIU.broadcastcall(constrs -> constrcall((I, J, V, b, instance.varmap, instance.constrmap), constrs), instance.data)
-    A = sparse(I, J, V)
-    f = MOI.get(instance.data, MOI.ObjectiveFunction())
-    c0 = full(sparsevec(_varmap(instance.varmap, f), f.coefficients, n))
-    c = MOI.get(instance.data, MOI.ObjectiveSense()) == MOI.MaxSense ? -c0 : c0
+    c = zeros(nvars)
+    instance.data = Data(m, nvars, I, J, V, b, 0., false, c)
+end
+
+function MOIU.allocateobjective!(instance::SCSSolverInstance, sense::MOI.OptimizationSense, f::MOI.ScalarAffineFunction) end
+
+function MOIU.loadobjective!(instance::SCSSolverInstance, sense::MOI.OptimizationSense, f::MOI.ScalarAffineFunction)
+    c0 = full(sparsevec(_varmap(f), f.coefficients, instance.data.n))
+    instance.data.objconstant = f.constant
+    instance.data.maxsense = sense == MOI.MaxSense
+    instance.data.c = instance.data.maxsense ? -c0 : c0
+end
+
+function MOI.optimize!(instance::SCSSolverInstance)
+    instance.idxmap = MOI.copy!(instance, instance.instancedata)
+    cone = instance.cone
+    m = instance.data.m
+    n = instance.data.n
+    A = sparse(instance.data.I, instance.data.J, instance.data.V)
+    b = instance.data.b
+    objconstant = instance.data.objconstant
+    maxsense = instance.data.maxsense
+    c = instance.data.c
+    instance.data = nothing # Allows GC to free instance.data before A is loaded to SCS
     sol = SCS_solve(SCS.Indirect, m, n, A, b, c, cone.f, cone.l, cone.qa, cone.sa, cone.ep, cone.ed, cone.p)
-    instance.ret_val = sol.ret_val
-    instance.primal = sol.x
-    instance.dual = sol.y
-    instance.slack = sol.s
-    instance.objval = dot(c0, instance.primal) + f.constant
+    ret_val = sol.ret_val
+    primal = sol.x
+    dual = sol.y
+    slack = sol.s
+    objval = (maxsense ? -1 : 1) * dot(c, primal) + objconstant
+    instance.sol = Solution(ret_val, primal, dual, slack, objval)
 end
