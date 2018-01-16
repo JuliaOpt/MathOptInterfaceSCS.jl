@@ -37,7 +37,7 @@ function _allocateconstraint!(cone::Cone, f, s::MOI.ExponentialCone)
     cone.ep += 1
     ci
 end
-constroffset(instance::SCSSolverInstance, ci) = constroffset(instance.cone, ci)
+constroffset(instance::SCSSolverInstance, ci::CI) = constroffset(instance.cone, ci::CI)
 function MOIU.allocateconstraint!(instance::SCSSolverInstance, f::F, s::S) where {F <: MOI.AbstractFunction, S <: MOI.AbstractSet}
     CI{F, S}(_allocateconstraint!(instance.cone, f, s))
 end
@@ -104,7 +104,7 @@ constrrows(s::MOI.AbstractVectorSet) = 1:MOI.dimension(s)
 constrrows(instance::SCSSolverInstance, ci::CI{<:MOI.AbstractScalarFunction, <:MOI.AbstractScalarSet}) = 1
 constrrows(instance::SCSSolverInstance, ci::CI{<:MOI.AbstractVectorFunction, <:MOI.AbstractVectorSet}) = 1:instance.cone.nrows[constroffset(instance, ci)]
 MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.SingleVariable, s) = MOIU.loadconstraint!(instance, ci, MOI.ScalarAffineFunction{Float64}(f), s)
-function MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.ScalarAffineFunction, s)
+function MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.ScalarAffineFunction, s::MOI.AbstractScalarSet)
     a = sparsevec(_varmap(f), f.coefficients)
     # sparsevec combines duplicates with + but does not remove zeros created so we call dropzeros!
     dropzeros!(a)
@@ -130,7 +130,7 @@ orderidx(idx, s) = idx
 function orderidx(idx, s::MOI.PositiveSemidefiniteConeTriangle)
     sympackedUtoLidx(idx, s.dimension)
 end
-function MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.VectorAffineFunction, s)
+function MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.VectorAffineFunction, s::MOI.AbstractVectorSet)
     A = sparse(f.outputindex, _varmap(f), f.coefficients)
     # sparse combines duplicates with + but does not remove zeros created so we call dropzeros!
     dropzeros!(A)
@@ -149,12 +149,6 @@ function MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.VectorAffi
     append!(instance.data.I, offset + orderidx(A.rowval, s))
     append!(instance.data.J, colval)
     append!(instance.data.V, scalecoef(A.rowval, A.nzval, true, s))
-end
-
-function constrcall(arg::Tuple, constrs::Vector)
-    for constr in constrs
-        constrcall(arg..., constr...)
-    end
 end
 
 function MOIU.allocatevariables!(instance::SCSSolverInstance, nvars::Integer)
