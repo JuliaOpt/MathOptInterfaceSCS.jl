@@ -10,6 +10,10 @@ const VI = MOI.VariableIndex
 using MathOptInterfaceUtilities
 const MOIU = MathOptInterfaceUtilities
 
+const SF = Union{MOI.SingleVariable, MOI.ScalarAffineFunction{Float64}, MOI.VectorOfVariables, MOI.VectorAffineFunction{Float64}}
+const SS = Union{MOI.EqualTo{Float64}, MOI.GreaterThan{Float64}, MOI.LessThan{Float64}, MOI.Zeros, MOI.Nonnegatives, MOI.Nonpositives, MOI.SecondOrderCone, MOI.ExponentialCone, MOI.PositiveSemidefiniteConeTriangle}
+
+
 MOIU.@instance SCSInstanceData () (EqualTo, GreaterThan, LessThan) (Zeros, Nonnegatives, Nonpositives, SecondOrderCone, ExponentialCone, PositiveSemidefiniteConeTriangle) () (SingleVariable,) (ScalarAffineFunction,) (VectorOfVariables,) (VectorAffineFunction,)
 
 using SCS
@@ -20,10 +24,11 @@ mutable struct SCSSolverInstance <: MOI.AbstractSolverInstance
     instancedata::SCSInstanceData{Float64} # Will be removed when
     idxmap::MOIU.IndexMap                  # InstanceManager is ready
     cone::Cone
+    maxsense::Bool
     data::Union{Void, Data} # only non-Void between MOI.copy! and MOI.optimize!
     sol::Solution
     function SCSSolverInstance()
-        new(SCSInstanceData{Float64}(), MOIU.IndexMap(), Cone(), nothing, Solution())
+        new(SCSInstanceData{Float64}(), MOIU.IndexMap(), Cone(), false, nothing, Solution())
     end
 end
 

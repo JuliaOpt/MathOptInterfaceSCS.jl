@@ -42,10 +42,7 @@ function MOI.get(instance::SCSSolverInstance, ::MOI.PrimalStatus)
         MOI.InfeasiblePoint
     end
 end
-function MOI.canget(instance::SCSSolverInstance, ::Union{MOI.VariablePrimal, MOI.ConstraintPrimal}, r::MOI.Index)
-    instance.sol.ret_val in (-6, -3, -1, 1, 2)
-end
-function MOI.canget(instance::SCSSolverInstance, ::Union{MOI.VariablePrimal, MOI.ConstraintPrimal}, r::Vector{<:MOI.Index})
+function MOI.canget(instance::SCSSolverInstance, ::Union{MOI.VariablePrimal, MOI.ConstraintPrimal}, ::Type{<:MOI.Index})
     instance.sol.ret_val in (-6, -3, -1, 1, 2)
 end
 function MOI.get(instance::SCSSolverInstance, ::MOI.VariablePrimal, vi::VI)

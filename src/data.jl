@@ -7,10 +7,19 @@ MOI.delete!(instance::SCSSolverInstance, r::MOI.Index) = MOI.delete!(instance.in
 for f in (:canget, :canset, :set!, :get, :get!)
     @eval begin
         MOI.$f(instance::SCSSolverInstance, attr::MOI.AnyAttribute) = MOI.$f(instance.instancedata, attr)
-        MOI.$f(instance::SCSSolverInstance, attr::MOI.AnyAttribute, ref::MOI.Index) = MOI.$f(instance.instancedata, attr, ref)
-        MOI.$f(instance::SCSSolverInstance, attr::MOI.AnyAttribute, refs::Vector{<:MOI.Index}) = MOI.$f(instance.instancedata, attr, refs)
         # Objective function
         MOI.$f(instance::SCSSolverInstance, attr::MOI.AnyAttribute, arg::Union{MOI.OptimizationSense, MOI.AbstractScalarFunction}) = MOI.$f(instance.instancedata, attr, arg)
+    end
+end
+for f in (:canget, :canset)
+    @eval begin
+        MOI.$f(instance::SCSSolverInstance, attr::MOI.AnyAttribute, index::Type{<:MOI.Index}) = MOI.$f(instance.instancedata, attr, index)
+    end
+end
+for f in (:set!, :get, :get!)
+    @eval begin
+        MOI.$f(instance::SCSSolverInstance, attr::MOI.AnyAttribute, index::MOI.Index) = MOI.$f(instance.instancedata, attr, index)
+        MOI.$f(instance::SCSSolverInstance, attr::MOI.AnyAttribute, indices::Vector{<:MOI.Index}) = MOI.$f(instance.instancedata, attr, indices)
     end
 end
 
