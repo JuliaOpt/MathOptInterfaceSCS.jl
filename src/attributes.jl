@@ -74,7 +74,7 @@ function MOI.get(instance::SCSSolverInstance, ::MOI.DualStatus)
         MOI.InfeasiblePoint
     end
 end
-function MOI.canget(instance::SCSSolverInstance, ::MOI.ConstraintDual, ::CI)
+function MOI.canget(instance::SCSSolverInstance, ::MOI.ConstraintDual, ::Type{<:CI})
     instance.sol.ret_val in (-7, -3, -2, 1, 2)
 end
 function MOI.get(instance::SCSSolverInstance, ::MOI.ConstraintDual, ci::CI{<:MOI.AbstractFunction, S}) where S <: MOI.AbstractSet

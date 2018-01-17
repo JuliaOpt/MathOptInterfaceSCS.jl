@@ -187,8 +187,8 @@ end
 
 function MOI.optimize!(instance::SCSSolverInstance)
     res = MOI.copy!(instance, instance.instancedata)
-    @assert res.status = MOI.CopySuccess
-    instance.idxmap = res.idxmap
+    @assert res.status == MOI.CopySuccess
+    instance.idxmap = res.indexmap
     cone = instance.cone
     m = instance.data.m
     n = instance.data.n
