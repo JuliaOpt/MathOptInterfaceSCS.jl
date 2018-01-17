@@ -13,7 +13,6 @@ const MOIU = MathOptInterfaceUtilities
 const SF = Union{MOI.SingleVariable, MOI.ScalarAffineFunction{Float64}, MOI.VectorOfVariables, MOI.VectorAffineFunction{Float64}}
 const SS = Union{MOI.EqualTo{Float64}, MOI.GreaterThan{Float64}, MOI.LessThan{Float64}, MOI.Zeros, MOI.Nonnegatives, MOI.Nonpositives, MOI.SecondOrderCone, MOI.ExponentialCone, MOI.PositiveSemidefiniteConeTriangle}
 
-
 MOIU.@instance SCSInstanceData () (EqualTo, GreaterThan, LessThan) (Zeros, Nonnegatives, Nonpositives, SecondOrderCone, ExponentialCone, PositiveSemidefiniteConeTriangle) () (SingleVariable,) (ScalarAffineFunction,) (VectorOfVariables,) (VectorAffineFunction,)
 
 using SCS
@@ -32,7 +31,10 @@ mutable struct SCSSolverInstance <: MOI.AbstractSolverInstance
     end
 end
 
-function MOI.empty!(instance::SCSSolverInstance) end
+function MOI.empty!(instance::SCSSolverInstance)
+    instance.maxsense = false
+    instance.data = nothing # It should already be nothing except if an error is thrown inside copy!
+end
 
 @bridge SplitInterval MOIU.SplitIntervalBridge () (Interval,) () () () (ScalarAffineFunction,) () ()
 @bridge GeoMean MOIU.GeoMeanBridge () () (GeometricMeanCone,) () () () (VectorOfVariables,) (VectorAffineFunction,)
