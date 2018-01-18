@@ -1,3 +1,5 @@
+using Compat.SparseArrays
+
 const ZeroCones = Union{MOI.EqualTo, MOI.Zeros}
 const LPCones = Union{MOI.GreaterThan, MOI.LessThan, MOI.Nonnegatives, MOI.Nonpositives}
 

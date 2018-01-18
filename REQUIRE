@@ -2,3 +2,4 @@ julia 0.6
 SCS
 MathOptInterface
 MathOptInterfaceUtilities
+Compat 0.47 # SparseArrays
