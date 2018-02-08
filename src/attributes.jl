@@ -9,8 +9,8 @@
 #  0 SCS_UNFINISHED  : never returned, used as placeholder
 #  1 SCS_SOLVED
 #  2 SCS_SOLVED_INACCURATE
-MOI.canget(instance::SCSSolverInstance, ::MOI.TerminationStatus) = true
-function MOI.get(instance::SCSSolverInstance, ::MOI.TerminationStatus)
+MOI.canget(instance::SCSInstance, ::MOI.TerminationStatus) = true
+function MOI.get(instance::SCSInstance, ::MOI.TerminationStatus)
     s = instance.sol.ret_val
     @assert -7 <= s <= 2
     @assert s != 0
@@ -28,11 +28,11 @@ function MOI.get(instance::SCSSolverInstance, ::MOI.TerminationStatus)
     end
 end
 
-MOI.canget(instance::SCSSolverInstance, ::MOI.ObjectiveValue) = true
-MOI.get(instance::SCSSolverInstance, ::MOI.ObjectiveValue) = instance.sol.objval
+MOI.canget(instance::SCSInstance, ::MOI.ObjectiveValue) = true
+MOI.get(instance::SCSInstance, ::MOI.ObjectiveValue) = instance.sol.objval
 
-MOI.canget(instance::SCSSolverInstance, ::MOI.PrimalStatus) = true
-function MOI.get(instance::SCSSolverInstance, ::MOI.PrimalStatus)
+MOI.canget(instance::SCSInstance, ::MOI.PrimalStatus) = true
+function MOI.get(instance::SCSInstance, ::MOI.PrimalStatus)
     s = instance.sol.ret_val
     if s in (-3, 1, 2)
         MOI.FeasiblePoint
@@ -42,29 +42,27 @@ function MOI.get(instance::SCSSolverInstance, ::MOI.PrimalStatus)
         MOI.InfeasiblePoint
     end
 end
-function MOI.canget(instance::SCSSolverInstance, ::Union{MOI.VariablePrimal, MOI.ConstraintPrimal}, ::Type{<:MOI.Index})
+function MOI.canget(instance::SCSInstance, ::Union{MOI.VariablePrimal, MOI.ConstraintPrimal}, ::Type{<:MOI.Index})
     instance.sol.ret_val in (-6, -3, -1, 1, 2)
 end
-function MOI.get(instance::SCSSolverInstance, ::MOI.VariablePrimal, vi::VI)
-    vi = instance.idxmap[vi]
+function MOI.get(instance::SCSInstance, ::MOI.VariablePrimal, vi::VI)
     instance.sol.primal[vi.value]
 end
-MOI.get(instance::SCSSolverInstance, a::MOI.VariablePrimal, vi::Vector{VI}) = MOI.get.(instance, a, vi)
-_unshift(instance::SCSSolverInstance, offset, value, s) = value
-_unshift(instance::SCSSolverInstance, offset, value, s::Type{<:MOI.AbstractScalarSet}) = value + instance.cone.setconstant[offset]
+MOI.get(instance::SCSInstance, a::MOI.VariablePrimal, vi::Vector{VI}) = MOI.get.(instance, a, vi)
+_unshift(instance::SCSInstance, offset, value, s) = value
+_unshift(instance::SCSInstance, offset, value, s::Type{<:MOI.AbstractScalarSet}) = value + instance.cone.setconstant[offset]
 reorderval(val, s) = val
 function reorderval(val, ::Type{MOI.PositiveSemidefiniteConeTriangle})
     sympackedLtoU(val)
 end
-function MOI.get(instance::SCSSolverInstance, ::MOI.ConstraintPrimal, ci::CI{<:MOI.AbstractFunction, S}) where S <: MOI.AbstractSet
-    ci = instance.idxmap[ci]
+function MOI.get(instance::SCSInstance, ::MOI.ConstraintPrimal, ci::CI{<:MOI.AbstractFunction, S}) where S <: MOI.AbstractSet
     offset = constroffset(instance, ci)
     rows = constrrows(instance, ci)
     _unshift(instance, offset, scalecoef(rows, reorderval(instance.sol.slack[offset + rows], S), false, S), S)
 end
 
-MOI.canget(instance::SCSSolverInstance, ::MOI.DualStatus) = true
-function MOI.get(instance::SCSSolverInstance, ::MOI.DualStatus)
+MOI.canget(instance::SCSInstance, ::MOI.DualStatus) = true
+function MOI.get(instance::SCSInstance, ::MOI.DualStatus)
     s = instance.sol.ret_val
     if s in (-3, 1, 2)
         MOI.FeasiblePoint
@@ -74,15 +72,14 @@ function MOI.get(instance::SCSSolverInstance, ::MOI.DualStatus)
         MOI.InfeasiblePoint
     end
 end
-function MOI.canget(instance::SCSSolverInstance, ::MOI.ConstraintDual, ::Type{<:CI})
+function MOI.canget(instance::SCSInstance, ::MOI.ConstraintDual, ::Type{<:CI})
     instance.sol.ret_val in (-7, -3, -2, 1, 2)
 end
-function MOI.get(instance::SCSSolverInstance, ::MOI.ConstraintDual, ci::CI{<:MOI.AbstractFunction, S}) where S <: MOI.AbstractSet
-    ci = instance.idxmap[ci]
+function MOI.get(instance::SCSInstance, ::MOI.ConstraintDual, ci::CI{<:MOI.AbstractFunction, S}) where S <: MOI.AbstractSet
     offset = constroffset(instance, ci)
     rows = constrrows(instance, ci)
     scalecoef(rows, reorderval(instance.sol.dual[offset + rows], S), false, S)
 end
 
-MOI.canget(instance::SCSSolverInstance, ::MOI.ResultCount) = true
-MOI.get(instance::SCSSolverInstance, ::MOI.ResultCount) = 1
+MOI.canget(instance::SCSInstance, ::MOI.ResultCount) = true
+MOI.get(instance::SCSInstance, ::MOI.ResultCount) = 1

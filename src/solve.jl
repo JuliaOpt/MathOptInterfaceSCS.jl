@@ -39,9 +39,9 @@ function _allocateconstraint!(cone::Cone, f, s::MOI.ExponentialCone)
     cone.ep += 1
     ci
 end
-constroffset(instance::SCSSolverInstance, ci::CI) = constroffset(instance.cone, ci::CI)
-MOIU.canallocateconstraint(::SCSSolverInstance, ::SF, ::SS) = true
-function MOIU.allocateconstraint!(instance::SCSSolverInstance, f::F, s::S) where {F <: MOI.AbstractFunction, S <: MOI.AbstractSet}
+constroffset(instance::SCSInstance, ci::CI) = constroffset(instance.cone, ci::CI)
+MOIU.canallocateconstraint(::SCSInstance, ::SF, ::SS) = true
+function MOIU.allocateconstraint!(instance::SCSInstance, f::F, s::S) where {F <: MOI.AbstractFunction, S <: MOI.AbstractSet}
     CI{F, S}(_allocateconstraint!(instance.cone, f, s))
 end
 
@@ -104,11 +104,11 @@ _constant(s::MOI.GreaterThan) = s.lower
 _constant(s::MOI.LessThan) = s.upper
 constrrows(::MOI.AbstractScalarSet) = 1
 constrrows(s::MOI.AbstractVectorSet) = 1:MOI.dimension(s)
-constrrows(instance::SCSSolverInstance, ci::CI{<:MOI.AbstractScalarFunction, <:MOI.AbstractScalarSet}) = 1
-constrrows(instance::SCSSolverInstance, ci::CI{<:MOI.AbstractVectorFunction, <:MOI.AbstractVectorSet}) = 1:instance.cone.nrows[constroffset(instance, ci)]
-MOIU.canloadconstraint(::SCSSolverInstance, ::SF, ::SS) = true
-MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.SingleVariable, s) = MOIU.loadconstraint!(instance, ci, MOI.ScalarAffineFunction{Float64}(f), s)
-function MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.ScalarAffineFunction, s::MOI.AbstractScalarSet)
+constrrows(instance::SCSInstance, ci::CI{<:MOI.AbstractScalarFunction, <:MOI.AbstractScalarSet}) = 1
+constrrows(instance::SCSInstance, ci::CI{<:MOI.AbstractVectorFunction, <:MOI.AbstractVectorSet}) = 1:instance.cone.nrows[constroffset(instance, ci)]
+MOIU.canloadconstraint(::SCSInstance, ::SF, ::SS) = true
+MOIU.loadconstraint!(instance::SCSInstance, ci, f::MOI.SingleVariable, s) = MOIU.loadconstraint!(instance, ci, MOI.ScalarAffineFunction{Float64}(f), s)
+function MOIU.loadconstraint!(instance::SCSInstance, ci, f::MOI.ScalarAffineFunction, s::MOI.AbstractScalarSet)
     a = sparsevec(_varmap(f), f.coefficients)
     # sparsevec combines duplicates with + but does not remove zeros created so we call dropzeros!
     dropzeros!(a)
@@ -125,7 +125,7 @@ function MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.ScalarAffi
     append!(instance.data.J, a.nzind)
     append!(instance.data.V, scalecoef(row, a.nzval, true, s))
 end
-MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.VectorOfVariables, s) = MOIU.loadconstraint!(instance, ci, MOI.VectorAffineFunction{Float64}(f), s)
+MOIU.loadconstraint!(instance::SCSInstance, ci, f::MOI.VectorOfVariables, s) = MOIU.loadconstraint!(instance, ci, MOI.VectorAffineFunction{Float64}(f), s)
 orderval(val, s) = val
 function orderval(val, s::MOI.PositiveSemidefiniteConeTriangle)
     sympackedUtoL(val, s.dimension)
@@ -134,7 +134,7 @@ orderidx(idx, s) = idx
 function orderidx(idx, s::MOI.PositiveSemidefiniteConeTriangle)
     sympackedUtoLidx(idx, s.dimension)
 end
-function MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.VectorAffineFunction, s::MOI.AbstractVectorSet)
+function MOIU.loadconstraint!(instance::SCSInstance, ci, f::MOI.VectorAffineFunction, s::MOI.AbstractVectorSet)
     A = sparse(f.outputindex, _varmap(f), f.coefficients)
     # sparse combines duplicates with + but does not remove zeros created so we call dropzeros!
     dropzeros!(A)
@@ -155,12 +155,12 @@ function MOIU.loadconstraint!(instance::SCSSolverInstance, ci, f::MOI.VectorAffi
     append!(instance.data.V, scalecoef(A.rowval, A.nzval, true, s))
 end
 
-function MOIU.allocatevariables!(instance::SCSSolverInstance, nvars::Integer)
+function MOIU.allocatevariables!(instance::SCSInstance, nvars::Integer)
     instance.cone = Cone()
     VI.(1:nvars)
 end
 
-function MOIU.loadvariables!(instance::SCSSolverInstance, nvars::Integer)
+function MOIU.loadvariables!(instance::SCSInstance, nvars::Integer)
     cone = instance.cone
     m = cone.f + cone.l + cone.q + cone.s + 3cone.ep + cone.ed
     I = Int[]
@@ -171,26 +171,23 @@ function MOIU.loadvariables!(instance::SCSSolverInstance, nvars::Integer)
     instance.data = Data(m, nvars, I, J, V, b, 0., c)
 end
 
-MOIU.canallocate(::SCSSolverInstance, ::MOI.ObjectiveSense) = true
-function MOIU.allocate!(instance::SCSSolverInstance, ::MOI.ObjectiveSense, sense::MOI.OptimizationSense)
+MOIU.canallocate(::SCSInstance, ::MOI.ObjectiveSense) = true
+function MOIU.allocate!(instance::SCSInstance, ::MOI.ObjectiveSense, sense::MOI.OptimizationSense)
     instance.maxsense = sense == MOI.MaxSense
 end
-MOIU.canallocate(::SCSSolverInstance, ::MOI.ObjectiveFunction) = true
-function MOIU.allocate!(::SCSSolverInstance, ::MOI.ObjectiveFunction, ::MOI.ScalarAffineFunction) end
+MOIU.canallocate(::SCSInstance, ::MOI.ObjectiveFunction) = true
+function MOIU.allocate!(::SCSInstance, ::MOI.ObjectiveFunction, ::MOI.ScalarAffineFunction) end
 
-MOIU.canload(::SCSSolverInstance, ::MOI.ObjectiveSense) = true
-function MOIU.load!(::SCSSolverInstance, ::MOI.ObjectiveSense, ::MOI.OptimizationSense) end
-MOIU.canload(::SCSSolverInstance, ::MOI.ObjectiveFunction) = true
-function MOIU.load!(instance::SCSSolverInstance, ::MOI.ObjectiveFunction, f::MOI.ScalarAffineFunction)
+MOIU.canload(::SCSInstance, ::MOI.ObjectiveSense) = true
+function MOIU.load!(::SCSInstance, ::MOI.ObjectiveSense, ::MOI.OptimizationSense) end
+MOIU.canload(::SCSInstance, ::MOI.ObjectiveFunction) = true
+function MOIU.load!(instance::SCSInstance, ::MOI.ObjectiveFunction, f::MOI.ScalarAffineFunction)
     c0 = full(sparsevec(_varmap(f), f.coefficients, instance.data.n))
     instance.data.objconstant = f.constant
     instance.data.c = instance.maxsense ? -c0 : c0
 end
 
-function MOI.optimize!(instance::SCSSolverInstance)
-    res = MOI.copy!(instance, instance.instancedata)
-    @assert res.status == MOI.CopySuccess
-    instance.idxmap = res.indexmap
+function MOI.optimize!(instance::SCSInstance)
     cone = instance.cone
     m = instance.data.m
     n = instance.data.n
