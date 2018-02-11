@@ -40,7 +40,7 @@ function _allocateconstraint!(cone::Cone, f, s::MOI.ExponentialCone)
     ci
 end
 constroffset(instance::SCSInstance, ci::CI) = constroffset(instance.cone, ci::CI)
-MOIU.canallocateconstraint(::SCSInstance, ::SF, ::SS) = true
+MOIU.canallocateconstraint(::SCSInstance, ::Type{<:SF}, ::Type{<:SS}) = true
 function MOIU.allocateconstraint!(instance::SCSInstance, f::F, s::S) where {F <: MOI.AbstractFunction, S <: MOI.AbstractSet}
     CI{F, S}(_allocateconstraint!(instance.cone, f, s))
 end
@@ -106,7 +106,7 @@ constrrows(::MOI.AbstractScalarSet) = 1
 constrrows(s::MOI.AbstractVectorSet) = 1:MOI.dimension(s)
 constrrows(instance::SCSInstance, ci::CI{<:MOI.AbstractScalarFunction, <:MOI.AbstractScalarSet}) = 1
 constrrows(instance::SCSInstance, ci::CI{<:MOI.AbstractVectorFunction, <:MOI.AbstractVectorSet}) = 1:instance.cone.nrows[constroffset(instance, ci)]
-MOIU.canloadconstraint(::SCSInstance, ::SF, ::SS) = true
+MOIU.canloadconstraint(::SCSInstance, ::Type{<:SF}, ::Type{<:SS}) = true
 MOIU.loadconstraint!(instance::SCSInstance, ci, f::MOI.SingleVariable, s) = MOIU.loadconstraint!(instance, ci, MOI.ScalarAffineFunction{Float64}(f), s)
 function MOIU.loadconstraint!(instance::SCSInstance, ci, f::MOI.ScalarAffineFunction, s::MOI.AbstractScalarSet)
     a = sparsevec(_varmap(f), f.coefficients)
@@ -175,12 +175,12 @@ MOIU.canallocate(::SCSInstance, ::MOI.ObjectiveSense) = true
 function MOIU.allocate!(instance::SCSInstance, ::MOI.ObjectiveSense, sense::MOI.OptimizationSense)
     instance.maxsense = sense == MOI.MaxSense
 end
-MOIU.canallocate(::SCSInstance, ::MOI.ObjectiveFunction) = true
+MOIU.canallocate(::SCSInstance, ::MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}) = true
 function MOIU.allocate!(::SCSInstance, ::MOI.ObjectiveFunction, ::MOI.ScalarAffineFunction) end
 
 MOIU.canload(::SCSInstance, ::MOI.ObjectiveSense) = true
 function MOIU.load!(::SCSInstance, ::MOI.ObjectiveSense, ::MOI.OptimizationSense) end
-MOIU.canload(::SCSInstance, ::MOI.ObjectiveFunction) = true
+MOIU.canload(::SCSInstance, ::MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}) = true
 function MOIU.load!(instance::SCSInstance, ::MOI.ObjectiveFunction, f::MOI.ScalarAffineFunction)
     c0 = full(sparsevec(_varmap(f), f.coefficients, instance.data.n))
     instance.data.objconstant = f.constant
