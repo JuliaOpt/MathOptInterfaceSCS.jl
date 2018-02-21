@@ -1,14 +1,13 @@
 module MathOptInterfaceSCS
 
-export SCSInstance
+export SCSOptimizer
 
 using MathOptInterface
 const MOI = MathOptInterface
 const CI = MOI.ConstraintIndex
 const VI = MOI.VariableIndex
 
-using MathOptInterfaceUtilities
-const MOIU = MathOptInterfaceUtilities
+const MOIU = MOI.Utilities
 
 const SF = Union{MOI.SingleVariable, MOI.ScalarAffineFunction{Float64}, MOI.VectorOfVariables, MOI.VectorAffineFunction{Float64}}
 const SS = Union{MOI.EqualTo{Float64}, MOI.GreaterThan{Float64}, MOI.LessThan{Float64}, MOI.Zeros, MOI.Nonnegatives, MOI.Nonpositives, MOI.SecondOrderCone, MOI.ExponentialCone, MOI.PositiveSemidefiniteConeTriangle}
@@ -17,24 +16,24 @@ using SCS
 
 include("types.jl")
 
-mutable struct SCSInstance <: MOI.AbstractSolverInstance
+mutable struct SCSOptimizer <: MOI.AbstractOptimizer
     cone::Cone
     maxsense::Bool
     data::Union{Void, Data} # only non-Void between MOI.copy! and MOI.optimize!
     sol::Solution
-    function SCSInstance()
+    function SCSOptimizer()
         new(Cone(), false, nothing, Solution())
     end
 end
 
-function MOI.empty!(instance::SCSInstance)
-    instance.maxsense = false
-    instance.data = nothing # It should already be nothing except if an error is thrown inside copy!
+function MOI.empty!(optimizer::SCSOptimizer)
+    optimizer.maxsense = false
+    optimizer.data = nothing # It should already be nothing except if an error is thrown inside copy!
 end
 
-MOI.canaddvariable(instance::SCSInstance) = false
+MOI.canaddvariable(optimizer::SCSOptimizer) = false
 
-MOI.copy!(dest::SCSInstance, src::MOI.AbstractInstance) = MOIU.allocateload!(dest, src)
+MOI.copy!(dest::SCSOptimizer, src::MOI.ModelLike) = MOIU.allocateload!(dest, src)
 
 # Implements optimize! : translate data to SCSData and call SCS_solve
 include("solve.jl")
