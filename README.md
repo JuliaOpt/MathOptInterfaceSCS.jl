@@ -3,7 +3,7 @@
 | **Build Status** | **Social** |
 |:----------------:|:----------:|
 | [![Build Status][build-img]][build-url] | [![Gitter][gitter-img]][gitter-url] |
-| [![Codecov branch][codecov-img]][codecov-url] | [<img src="https://upload.wikimedia.org/wikipedia/en/a/af/Discourse_logo.png" width="64">][discourse-url] |
+| [![Codecov branch][codecov-img]][codecov-url] | [<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Discourse_logo.png/799px-Discourse_logo.png" width="64">][discourse-url] |
 
 MathOptInterfaceSCS (MOISCS for short) is the [MathOptInterface.jl](https://github.com/JuliaOpt/MathOptInterface.jl) implementation for the [SCS](https://github.com/cvxgrp/scs) embeddable conic optimization interior point solver. The low-level solver API for SCS is found in the package [SCS.jl](https://github.com/JuliaOpt/SCS.jl).
 
