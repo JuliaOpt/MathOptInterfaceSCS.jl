@@ -25,5 +25,5 @@ const config = MOIT.TestConfig(atol=1e-4, rtol=1e-4)
 end
 
 @testset "Continuous conic problems" begin
-    MOIT.contconictest(RootDet{Float64}(LogDet{Float64}(MOIU.CachingOptimizer(SCSModelData{Float64}(), SCSOptimizer()))), config, ["rsoc", "geomean", "rootdet"])
+    MOIT.contconictest(RootDet{Float64}(LogDet{Float64}(MOIU.CachingOptimizer(SCSModelData{Float64}(), SCSOptimizer()))), config, ["rsoc", "geomean", "psds", "rootdet", "logdets"])
 end
