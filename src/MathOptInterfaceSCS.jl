@@ -26,6 +26,9 @@ mutable struct SCSOptimizer <: MOI.AbstractOptimizer
     end
 end
 
+function MOI.isempty(optimizer::SCSOptimizer)
+    !optimizer.maxsense && optimizer.data === nothing
+end
 function MOI.empty!(optimizer::SCSOptimizer)
     optimizer.maxsense = false
     optimizer.data = nothing # It should already be nothing except if an error is thrown inside copy!
