@@ -38,7 +38,7 @@ MOI.canaddvariable(optimizer::SCSOptimizer) = false
 
 MOI.supports(::SCSOptimizer, ::MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}) = true
 MOI.supportsconstraint(::SCSOptimizer, ::Type{<:SF}, ::Type{<:SS}) = true
-MOI.copy!(dest::SCSOptimizer, src::MOI.ModelLike) = MOIU.allocateload!(dest, src)
+MOI.copy!(dest::SCSOptimizer, src::MOI.ModelLike; copynames=true) = MOIU.allocateload!(dest, src, copynames)
 
 # Implements optimize! : translate data to SCSData and call SCS_solve
 include("solve.jl")
